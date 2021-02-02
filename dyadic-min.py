@@ -63,7 +63,7 @@ class goy:
 		self.total_energy_min     = np.zeros(shape = 1, dtype = complex)
 
 		# The constraint
-		self.epsilon      = 0.0002
+		self.epsilon      = 0.0001
 		self.constraint   = opt.NonlinearConstraint(self.energy_diff, -self.epsilon, self.epsilon)
 
 		# To pass between reals and complex numbers
@@ -95,7 +95,7 @@ class goy:
 
 		# This is the function we feed into the implicit solver
 		# What follows is half implicit half explicit
-		self.implicit = self.implicit_complex_v - 0.5*self.dt*self.drift(self.implicit_complex_v) -0.5*self.dt*self.cur_drift - self.noise - self.state 
+		self.implicit = self.implicit_complex_v - 0.9*self.dt*self.drift(self.implicit_complex_v) -0.1*self.dt*self.cur_drift - self.noise - self.state 
 
 		# This is the fully implicit minimizer
 		# self.implicit = self.implicit_complex_v - self.dt*self.drift(self.implicit_complex_v) - self.noise - self.state 
@@ -199,18 +199,29 @@ class energy(goy):
 
 # Parameters of the model
 # Dimension of the system
-NN = 100
+NN = 70
+
 # Initial state of the system
 initial_state = np.ones(shape = NN, dtype=complex)
+
+# In this case chosen at random
+initial_noise = np.random.normal(loc = 0.0, scale = 1.0, size =(2,NN))
+initial_state = initial_noise[0,:] + 1.0j*initial_noise[1,:]
+for i in range(NN):
+	initial_state[i] = 5.0*initial_state[i]/(5.0+0.005*np.sqrt(i))
+
+# Below is a deterministic initial condition
 #for i in range(NN):
 #	initial_state[i] = 5.0/(5.0+0.005*np.sqrt(float(i))**2)
+
+
 # Time increment
 dt = 0.001
 # Time horizon
-time_horizon = 80
+time_horizon = 3000
 
 # We define the model with these parameters
-my_goy  = energy(initial_state, NN, dt, sigma = 1.0)
+my_goy  = energy(initial_state, NN, dt, sigma = 5.0)
 goy_det = energy(initial_state, NN, dt, sigma = 0.0)
 # goy_imp = goy_impl(initial_state, NN, dt)
 
@@ -237,7 +248,7 @@ lines_4, = ax2.plot(np.arange(NN), goy_det.partial())
 
 def init():
 
-    return [lines_1,] + [lines_3,]+ [lines_2,] +[lines_4,]
+    return [lines_1,] + [lines_3,] + [lines_2,] + [lines_4,]
 
 # To build the animation
 def animate(i):
