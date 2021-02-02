@@ -49,6 +49,7 @@ class goy:
 		self.drift_1    = np.zeros( shape = self.size, dtype = complex )
 		self.drift_2    = np.zeros( shape = self.size, dtype = complex )
 		self.drift_tot  = np.zeros( shape = self.size, dtype = complex )
+		self.cur_drift  = np.zeros( shape = self.size, dtype = complex )
 
 		# For the minimization solver
 		self.implicit   = np.zeros( shape = self.size, dtype = complex )
@@ -77,6 +78,9 @@ class goy:
 		# so that the noise can change the L2 norm.
 		self.total_energy_initial = np.sqrt(np.dot(self.state, np.conj(self.state)).real+2*np.dot(self.state,np.conj(self.noise)).real)
 
+		# We also adjourn the drift:
+		self.cur_drift = self.drift(self.state)
+
 		# This gives back complex numbers as 2-dim real vectors (for this reason we wrap it in the complexification)
 		self.state_wrapped = opt.minimize(self.implicit_f, self.state_wrapped, method='SLSQP', constraints = self.constraint).x
 
@@ -91,10 +95,10 @@ class goy:
 
 		# This is the function we feed into the implicit solver
 		# What follows is half implicit half explicit
-		self.implicit = self.implicit_complex_v - 0.5*self.dt*self.drift(self.implicit_complex_v) -0.5*self.dt*self.drift(self.state) - self.noise - self.state 
+		self.implicit = self.implicit_complex_v - 0.5*self.dt*self.drift(self.implicit_complex_v) -0.5*self.dt*self.cur_drift - self.noise - self.state 
 
 		# This is the fully implicit minimizer
-		self.implicit = self.implicit_complex_v - self.dt*self.drift(self.implicit_complex_v) - self.noise - self.state 
+		# self.implicit = self.implicit_complex_v - self.dt*self.drift(self.implicit_complex_v) - self.noise - self.state 
 
 		return np.linalg.norm(np.abs(self.implicit))
 
@@ -198,12 +202,12 @@ class energy(goy):
 NN = 100
 # Initial state of the system
 initial_state = np.ones(shape = NN, dtype=complex)
-for i in range(NN):
-	initial_state[i] = 5.0/(5.0+0.005*np.sqrt(float(i))**2)
+#for i in range(NN):
+#	initial_state[i] = 5.0/(5.0+0.005*np.sqrt(float(i))**2)
 # Time increment
 dt = 0.001
 # Time horizon
-time_horizon = 700
+time_horizon = 80
 
 # We define the model with these parameters
 my_goy  = energy(initial_state, NN, dt, sigma = 1.0)
