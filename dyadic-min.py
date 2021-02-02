@@ -166,7 +166,7 @@ class energy(goy):
 	""" We enhance the GOY class, by computing energy levels """
 
 	def __init__(self,  initial_state, system_size, dt, sigma):
-		super(energy, self).__init__(initial_state, system_size, dt)
+		super(energy, self).__init__(initial_state, system_size, dt, sigma)
 
 		# For the partial energies
 		self.total_energy     = np.linalg.norm(np.absolute(self.state))
@@ -191,7 +191,7 @@ class energy(goy):
 
 # Parameters of the model
 # Dimension of the system
-NN = 50
+NN = 100
 # Initial state of the system
 initial_state = np.ones(shape = NN, dtype=complex)
 for i in range(NN):
@@ -199,7 +199,7 @@ for i in range(NN):
 # Time increment
 dt = 0.001
 # Time horizon
-time_horizon = 2000
+time_horizon = 300
 
 # We define the model with these parameters
 my_goy  = energy(initial_state, NN, dt, sigma = 1.0)
@@ -255,6 +255,7 @@ def animate(i):
 	
 	# And we do the next step:
 	my_goy.implicit_forward()
+	goy_det.implicit_forward()
 
 	return [lines_1,] + [lines_3,] + [lines_2,] + [lines_4,] + [time_text,]
 
