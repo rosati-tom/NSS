@@ -90,6 +90,10 @@ class goy:
 		self.implicit_complex_v = input_v[:self.size]+1.0j*input_v[self.size:]
 
 		# This is the function we feed into the implicit solver
+		# What follows is half implicit half explicit
+		self.implicit = self.implicit_complex_v - 0.5*self.dt*self.drift(self.implicit_complex_v) -0.5*self.dt*self.drift(self.state) - self.noise - self.state 
+
+		# This is the fully implicit minimizer
 		self.implicit = self.implicit_complex_v - self.dt*self.drift(self.implicit_complex_v) - self.noise - self.state 
 
 		return np.linalg.norm(np.abs(self.implicit))
@@ -199,7 +203,7 @@ for i in range(NN):
 # Time increment
 dt = 0.001
 # Time horizon
-time_horizon = 300
+time_horizon = 700
 
 # We define the model with these parameters
 my_goy  = energy(initial_state, NN, dt, sigma = 1.0)
