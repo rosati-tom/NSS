@@ -21,7 +21,7 @@ class goy:
 	"""
 	We simulate the GOY model
 	"""
-	def __init__(self, initial_state, system_size, dt):
+	def __init__(self, initial_state, system_size, dt, sigma):
 
 		# Initial values
 		self.state = initial_state
@@ -39,7 +39,7 @@ class goy:
 		self.coefficients_up[-1]  = 1.0
 
 		# This adds the noise
-		self.sigma      = 1.0
+		self.sigma      = sigma
 		self.noise      = np.zeros( shape = self.size, dtype = complex )
 		self.noise_real = np.zeros( shape = (2,self.size), dtype = float)
 		self.sample_noise()
@@ -62,7 +62,7 @@ class goy:
 		self.total_energy_min     = np.zeros(shape = 1, dtype = complex)
 
 		# The constraint
-		self.epsilon      = 0.0003
+		self.epsilon      = 0.0002
 		self.constraint   = opt.NonlinearConstraint(self.energy_diff, -self.epsilon, self.epsilon)
 
 		# To pass between reals and complex numbers
@@ -75,12 +75,15 @@ class goy:
 
 		# In the case with noise we have to adjourn the constraints,
 		# so that the noise can change the L2 norm.
-		self.total_energy_initial = np.linalg.norm(np.abs(self.state+self.noise))
+		self.total_energy_initial = np.sqrt(np.dot(self.state, np.conj(self.state)).real+2*np.dot(self.state,np.conj(self.noise)).real)
 
 		# This gives back complex numbers as 2-dim real vectors (for this reason we wrap it in the complexification)
 		self.state_wrapped = opt.minimize(self.implicit_f, self.state_wrapped, method='SLSQP', constraints = self.constraint).x
 
 		self.decomplexify()
+
+		# We sample the new noise
+		self.sample_noise()
 		
 	def implicit_f(self, input_v):	
 
@@ -88,9 +91,6 @@ class goy:
 
 		# This is the function we feed into the implicit solver
 		self.implicit = self.implicit_complex_v - self.dt*self.drift(self.implicit_complex_v) - self.noise - self.state 
-
-		# We adjourn the noise
-		self.sample_noise()
 
 		return np.linalg.norm(np.abs(self.implicit))
 
@@ -148,7 +148,7 @@ class goy:
 	def sample_noise(self):
 
 		self.noise_real = np.random.normal( loc = 0.0, scale = np.sqrt(self.dt*0.5*self.sigma), size =(2, self.size))
-		self.noise = self.noise_real[0,:] + 1.0j*self.noise_real[1,:]
+		self.noise = self.noise_real[0,:] + 1.0j*self.noise_real[1,:] 
 
 	def complexify(self):
 
@@ -165,7 +165,7 @@ class energy(goy):
 
 	""" We enhance the GOY class, by computing energy levels """
 
-	def __init__(self,  initial_state, system_size, dt):
+	def __init__(self,  initial_state, system_size, dt, sigma):
 		super(energy, self).__init__(initial_state, system_size, dt)
 
 		# For the partial energies
@@ -199,13 +199,15 @@ for i in range(NN):
 # Time increment
 dt = 0.001
 # Time horizon
-time_horizon = 100
+time_horizon = 2000
 
 # We define the model with these parameters
-my_goy  = energy(initial_state, NN, dt)
+my_goy  = energy(initial_state, NN, dt, sigma = 1.0)
+goy_det = energy(initial_state, NN, dt, sigma = 0.0)
 # goy_imp = goy_impl(initial_state, NN, dt)
 
 eng     = np.zeros( shape = time_horizon ) + my_goy.compute()
+eng_det = np.zeros( shape = time_horizon ) + goy_det.compute()
 time    = np.arange(time_horizon) 
 space   = np.arange(NN)
 
@@ -221,21 +223,27 @@ ax1.set_ylim([my_goy.compute() - 3.0, my_goy.compute() + 3.0])
 
 # Initialization
 lines_1, = ax1.plot(time, eng)
+lines_3, = ax1.plot(time, eng_det)
 lines_2, = ax2.plot(np.arange(NN), my_goy.partial())
+lines_4, = ax2.plot(np.arange(NN), goy_det.partial())
 
 def init():
 
-    return [lines_1,] + [lines_2,]
+    return [lines_1,] + [lines_3,]+ [lines_2,] +[lines_4,]
 
 # To build the animation
 def animate(i):
 	# Real time is:
 
-	ani_time = dt*i
+	ani_time   = dt*i
 	# Redefine the plot
-	eng[i]  = my_goy.compute()
+	eng[i]     = my_goy.compute()
+	eng_det[i] = goy_det.compute()
+
 	lines_1.set_data(time, eng)
+	lines_3.set_data(time, eng_det)
 	lines_2.set_data(space, my_goy.partial())
+	lines_4.set_data(space, goy_det.partial())
 
 	# Set the new time
 	time_text.set_text("Time = {:2.3f}".format(ani_time) )
@@ -248,7 +256,7 @@ def animate(i):
 	# And we do the next step:
 	my_goy.implicit_forward()
 
-	return [lines_1,] + [lines_2,] + [time_text,]
+	return [lines_1,] + [lines_3,] + [lines_2,] + [lines_4,] + [time_text,]
 
 # To run and save the animation
 ani = FuncAnimation(fig, animate, init_func=init, frames=time_horizon-10, interval = 10, blit = True)
